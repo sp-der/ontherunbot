@@ -3,9 +3,15 @@ require('dotenv').config();
 const {
   Client,
   GatewayIntentBits,
+  Partials,
   SlashCommandBuilder,
 } = require('discord.js');
 const { setupOtrCommunity } = require('./serverSetup');
+const {
+  setupColorRoles,
+  handleColorReactionAdd,
+  handleColorReactionRemove,
+} = require('./colorRoles');
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -15,7 +21,15 @@ if (!token) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessageReactions,
+  ],
+  partials: [
+    Partials.Message,
+    Partials.Channel,
+    Partials.Reaction,
+  ],
 });
 
 const commands = [
@@ -31,11 +45,28 @@ client.once('clientReady', async () => {
     const guild = await setupOtrCommunity(client);
 
     if (guild) {
+      await setupColorRoles(guild);
       await guild.commands.set(commands);
       console.log(`[commands] Registered /health in ${guild.name}.`);
     }
   } catch (error) {
     console.error('[startup] OTR setup failed:', error);
+  }
+});
+
+client.on('messageReactionAdd', async (reaction, user) => {
+  try {
+    await handleColorReactionAdd(reaction, user);
+  } catch (error) {
+    console.error('[color-roles] Reaction add failed:', error);
+  }
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+  try {
+    await handleColorReactionRemove(reaction, user);
+  } catch (error) {
+    console.error('[color-roles] Reaction remove failed:', error);
   }
 });
 
