@@ -78,6 +78,45 @@ async function ensureChannel(guild, { name, type, parent }) {
   return channel;
 }
 
+async function ensureWelcomeChannel(guild, parent) {
+  await guild.channels.fetch();
+
+  let welcome = guild.channels.cache.find(
+    ch => ch.type === ChannelType.GuildText && ch.name.toLowerCase() === 'welcome',
+  );
+
+  if (!welcome) {
+    const joined = guild.channels.cache.find(
+      ch => ch.type === ChannelType.GuildText && ch.name.toLowerCase() === 'joined',
+    );
+
+    if (joined) {
+      welcome = await joined.setName('welcome', 'OTR server onboarding cleanup');
+      console.log('[setup] Renamed channel: joined -> welcome');
+    }
+  }
+
+  if (!welcome) {
+    welcome = await guild.channels.create({
+      name: 'welcome',
+      type: ChannelType.GuildText,
+      parent: parent.id,
+      reason: 'OTR server onboarding setup',
+    });
+    console.log('[setup] Created channel: welcome');
+    return welcome;
+  }
+
+  if (welcome.parentId !== parent.id) {
+    await welcome.setParent(parent.id, { lockPermissions: false });
+    console.log(`[setup] Moved existing channel into ${parent.name}: welcome`);
+  } else {
+    console.log('[setup] Reusing channel: welcome');
+  }
+
+  return welcome;
+}
+
 async function setupOtrCommunity(client) {
   const enabled = String(process.env.ENABLE_SERVER_SETUP || '').toLowerCase() === 'true';
   if (!enabled) {
@@ -100,6 +139,14 @@ async function setupOtrCommunity(client) {
   }
 
   console.log(`[setup] Target server confirmed: ${guild.name} (${guild.id})`);
+
+  const startHere = await ensureCategory(guild, 'START HERE');
+  await ensureWelcomeChannel(guild, startHere);
+  await ensureChannel(guild, {
+    name: 'roles',
+    type: ChannelType.GuildText,
+    parent: startHere,
+  });
 
   const community = await ensureCategory(guild, 'OTR COMMUNITY');
   await ensureChannel(guild, {
