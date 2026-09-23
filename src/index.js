@@ -12,6 +12,11 @@ const {
   handleColorReactionAdd,
   handleColorReactionRemove,
 } = require('./colorRoles');
+const {
+  setupSelfRoles,
+  handleSelfRoleReactionAdd,
+  handleSelfRoleReactionRemove,
+} = require('./selfRoles');
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -46,6 +51,7 @@ client.once('clientReady', async () => {
 
     if (guild) {
       await setupColorRoles(guild);
+      await setupSelfRoles(guild);
       await guild.commands.set(commands);
       console.log(`[commands] Registered /health in ${guild.name}.`);
     }
@@ -57,16 +63,18 @@ client.once('clientReady', async () => {
 client.on('messageReactionAdd', async (reaction, user) => {
   try {
     await handleColorReactionAdd(reaction, user);
+    await handleSelfRoleReactionAdd(reaction, user);
   } catch (error) {
-    console.error('[color-roles] Reaction add failed:', error);
+    console.error('[reaction-roles] Reaction add failed:', error);
   }
 });
 
 client.on('messageReactionRemove', async (reaction, user) => {
   try {
     await handleColorReactionRemove(reaction, user);
+    await handleSelfRoleReactionRemove(reaction, user);
   } catch (error) {
-    console.error('[color-roles] Reaction remove failed:', error);
+    console.error('[reaction-roles] Reaction remove failed:', error);
   }
 });
 
