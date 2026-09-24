@@ -17,6 +17,7 @@ const {
   handleSelfRoleReactionAdd,
   handleSelfRoleReactionRemove,
 } = require('./selfRoles');
+const { startMarketDesk } = require('./marketDashboard');
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -52,6 +53,7 @@ client.once('clientReady', async () => {
     if (guild) {
       await setupColorRoles(guild);
       await setupSelfRoles(guild);
+      await startMarketDesk(guild);
       await guild.commands.set(commands);
       console.log(`[commands] Registered /health in ${guild.name}.`);
     }
