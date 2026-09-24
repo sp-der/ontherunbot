@@ -1,6 +1,13 @@
 const {
+  AttachmentBuilder,
+  ContainerBuilder,
   EmbedBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
+  MessageFlags,
+  TextDisplayBuilder,
 } = require('discord.js');
+const { buildOtrBanner } = require('./otrBanner');
 
 const MARKET_SYMBOLS = [
   {
@@ -139,63 +146,72 @@ async function fetchMarketQuotes() {
   );
 }
 
-function buildDashboardEmbed(guild, quotes) {
+function buildDashboardContainer(quotes) {
   const now = Math.floor(Date.now() / 1000);
-  const icon = guild.iconURL({
-    extension: 'png',
-    size: 256,
-    forceStatic: true,
-  });
 
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle('📊 OTR Market Desk')
-    .setDescription(
-      [
-        'Hourly futures snapshot for the OTR trading room.',
-        `Last refreshed <t:${now}:R> • <t:${now}:t>`,
-      ].join('\n'),
-    )
-    .setFooter({
-      text: `${DASHBOARD_MARKER} • Alerts at ±0.50%, ±1.00%, ±1.50% vs previous close • Quotes may be delayed`,
-    })
-    .setTimestamp();
-
-  if (icon) {
-    embed.setThumbnail(icon);
-  }
-
-  for (const quote of quotes) {
+  const marketLines = quotes.map(quote => {
     if (!quote.ok) {
-      embed.addFields({
-        name: quote.label,
-        value: '⚠️ Data temporarily unavailable',
-        inline: true,
-      });
-      continue;
+      return [
+        `### ${quote.label}`,
+        '⚠️ Data temporarily unavailable',
+      ].join('\n');
     }
 
-    const emoji = movementEmoji(quote.percent);
-    embed.addFields({
-      name: quote.label,
-      value: [
-        `**${formatNumber(quote.price)}**`,
-        `${emoji} ${formatSigned(quote.change)} (${formatSigned(quote.percent, '%')})`,
-        `Prev close: ${formatNumber(quote.previousClose)}`,
-      ].join('\n'),
-      inline: true,
-    });
-  }
+    return [
+      `### ${quote.label}`,
+      `**${formatNumber(quote.price)}**`,
+      `${movementEmoji(quote.percent)} ${formatSigned(quote.change)} (${formatSigned(quote.percent, '%')})`,
+      `Prev close: ${formatNumber(quote.previousClose)}`,
+    ].join('\n');
+  });
 
-  return embed;
+  const copy = [
+    '## 📊 OTR Market Desk',
+    'Hourly futures snapshot for the OTR trading room.',
+    `Last refreshed <t:${now}:R> • <t:${now}:t>`,
+    '',
+    ...marketLines.flatMap((line, index) =>
+      index === marketLines.length - 1 ? [line] : [line, ''],
+    ),
+    '',
+    '*Alerts at ±0.50%, ±1.00%, ±1.50% vs previous close • Quotes may be delayed*',
+    `<!-- ${DASHBOARD_MARKER} -->`,
+  ].join('\n');
+
+  return new ContainerBuilder()
+    .setAccentColor(0x5865f2)
+    .addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(
+        new MediaGalleryItemBuilder()
+          .setURL('attachment://otr-market-banner.png')
+          .setDescription('OTR market desk banner'),
+      ),
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(copy),
+    );
 }
 
 function isDashboardMessage(message) {
   if (!message || message.author?.id !== message.client.user?.id) return false;
 
-  return message.embeds?.some(
+  const legacyEmbedMatch = message.embeds?.some(
     embed => embed.footer?.text?.includes(DASHBOARD_MARKER),
   );
+
+  if (legacyEmbedMatch) return true;
+
+  try {
+    const serialized = JSON.stringify(
+      message.components?.map(component =>
+        typeof component.toJSON === 'function' ? component.toJSON() : component,
+      ) || [],
+    );
+
+    return serialized.includes(DASHBOARD_MARKER);
+  } catch {
+    return false;
+  }
 }
 
 async function getTradingChannel(guild) {
@@ -213,6 +229,19 @@ async function findDashboardMessage(channel) {
   return recent.find(isDashboardMessage) || null;
 }
 
+async function sendDashboardMessage(channel, guild, quotes) {
+  const banner = await buildOtrBanner(guild);
+  const attachment = new AttachmentBuilder(banner, {
+    name: 'otr-market-banner.png',
+  });
+
+  return channel.send({
+    components: [buildDashboardContainer(quotes)],
+    files: [attachment],
+    flags: MessageFlags.IsComponentsV2,
+  });
+}
+
 async function updateDashboard(guild, suppliedQuotes = null) {
   const channel = await getTradingChannel(guild);
 
@@ -227,16 +256,30 @@ async function updateDashboard(guild, suppliedQuotes = null) {
     return;
   }
 
-  const embed = buildDashboardEmbed(guild, quotes);
   const existing = await findDashboardMessage(channel);
+  const banner = await buildOtrBanner(guild);
+  const attachment = new AttachmentBuilder(banner, {
+    name: 'otr-market-banner.png',
+  });
+
+  if (existing?.flags?.has?.(MessageFlags.IsComponentsV2)) {
+    await existing.edit({
+      components: [buildDashboardContainer(quotes)],
+      files: [attachment],
+      attachments: [],
+    });
+
+    console.log(`[market] Dashboard refreshed with banner: ${existing.id}`);
+    return;
+  }
 
   if (existing) {
-    await existing.edit({ embeds: [embed] });
-    console.log(`[market] Dashboard refreshed: ${existing.id}`);
-  } else {
-    const sent = await channel.send({ embeds: [embed] });
-    console.log(`[market] Dashboard posted: ${sent.id}`);
+    await existing.delete();
+    console.log(`[market] Removed legacy dashboard: ${existing.id}`);
   }
+
+  const sent = await sendDashboardMessage(channel, guild, quotes);
+  console.log(`[market] Dashboard posted with banner: ${sent.id}`);
 }
 
 function stateForQuote(quote) {
