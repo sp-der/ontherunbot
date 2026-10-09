@@ -4,7 +4,8 @@ Discord bot for the **OTR community** (`sp-der/ontherunbot`), deployed from `mai
 
 ## Existing features
 - `#trading` market desk: hourly NQ, ES and Gold futures snapshot (Yahoo chart quotes, which may be delayed).
-- Existing 5-minute movement thresholds and selective Trader role pings.
+- Market movement thresholds are **disabled by default** to keep `#trading` uncluttered. The market dashboard still updates hourly, editing its existing message instead of creating new posts. Major economic and Fed policy pings remain enabled.
+- Optional opt-in: set `ENABLE_MARKET_MOVEMENT_ALERTS=true` to restore 5-minute movement checks and threshold pings.
 - Welcome/roles/channel setup and self-service color roles.
 
 ## New trading intelligence
@@ -23,6 +24,7 @@ Railway variables:
 - `OTR_GUILD_NAME=OTR` or `DISCORD_GUILD_ID`
 - `ENABLE_SERVER_SETUP=true` (existing server setup)
 - `ENABLE_TRADING_INTELLIGENCE=true` (optional: enabled by default; set false to disable)
+- `ENABLE_MARKET_MOVEMENT_ALERTS=false` (default; movement posts and pings only run when explicitly set to `true`)
 
 Discord permissions: View Channel, Read Message History, Send Messages, Embed Links, Attach Files, and ability to mention the Trader role if you want role pings to work. The bot also needs Manage Channels / Manage Roles for existing server and role setup.
 

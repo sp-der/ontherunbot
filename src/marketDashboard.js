@@ -34,6 +34,11 @@ const ALERT_THRESHOLDS = [0.5, 1.0, 1.5];
 const ALERT_POLL_MS = 5 * 60 * 1000;
 const DASHBOARD_MARKER = 'OTR_MARKET_DASHBOARD';
 
+// Opt-in only: market moves still appear on the hourly dashboard without spamming #trading.
+function movementAlertsEnabled() {
+  return String(process.env.ENABLE_MARKET_MOVEMENT_ALERTS || '').trim().toLowerCase() === 'true';
+}
+
 const alertState = new Map();
 let hourlyTimeout = null;
 let hourlyInterval = null;
@@ -174,7 +179,7 @@ function buildDashboardContainer(quotes) {
       index === marketLines.length - 1 ? [line] : [line, ''],
     ),
     '',
-    '*Alerts at ±0.50%, ±1.00%, ±1.50% vs previous close • Quotes may be delayed*',
+    '*Hourly snapshot • Quotes may be delayed • No automatic movement pings*',
     `<!-- ${DASHBOARD_MARKER} -->`,
   ].join('\n');
 
@@ -368,6 +373,8 @@ function buildAlertEmbed(quote, threshold) {
 }
 
 async function checkMarketAlerts(guild, suppliedQuotes = null, initializeOnly = false) {
+  if (!movementAlertsEnabled()) return;
+
   const channel = await getTradingChannel(guild);
 
   if (!channel) {
@@ -446,24 +453,27 @@ async function startMarketDesk(guild) {
   const initialQuotes = await fetchMarketQuotes();
 
   await updateDashboard(guild, initialQuotes);
-  await checkMarketAlerts(guild, initialQuotes, true);
-
   scheduleHourlyDashboard(guild);
 
-  alertInterval = setInterval(async () => {
-    try {
-      await checkMarketAlerts(guild);
-    } catch (error) {
-      console.error('[market] Alert check failed:', error);
-    }
-  }, ALERT_POLL_MS);
-
-  console.log('[market] Market desk is ready: hourly dashboard + 5-minute alert checks.');
+  if (movementAlertsEnabled()) {
+    await checkMarketAlerts(guild, initialQuotes, true);
+    alertInterval = setInterval(async () => {
+      try {
+        await checkMarketAlerts(guild);
+      } catch (error) {
+        console.error('[market] Alert check failed:', error);
+      }
+    }, ALERT_POLL_MS);
+    console.log('[market] Market desk ready: hourly dashboard + movement alerts (opted in).');
+  } else {
+    console.log('[market] Market desk ready: hourly dashboard only; movement alerts disabled.');
+  }
 }
 
 module.exports = {
   MARKET_SYMBOLS,
   ALERT_THRESHOLDS,
+  movementAlertsEnabled,
   startMarketDesk,
   updateDashboard,
   checkMarketAlerts,
