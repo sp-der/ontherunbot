@@ -18,6 +18,7 @@ const {
   handleSelfRoleReactionRemove,
 } = require('./selfRoles');
 const { startMarketDesk } = require('./marketDashboard');
+const { startTradingIntelligence } = require('./tradingIntelligence');
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -53,7 +54,13 @@ client.once('clientReady', async () => {
     if (guild) {
       await setupColorRoles(guild);
       await setupSelfRoles(guild);
-      await startMarketDesk(guild);
+      const deskResults = await Promise.allSettled([
+        startMarketDesk(guild),
+        startTradingIntelligence(guild),
+      ]);
+      for (const result of deskResults) {
+        if (result.status === 'rejected') console.error('[startup] Trading service failed:', result.reason);
+      }
       await guild.commands.set(commands);
       console.log(`[commands] Registered /health in ${guild.name}.`);
     }

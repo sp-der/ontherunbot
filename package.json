@@ -1,12 +1,13 @@
 {
   "name": "ontherunbot",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "OTR Discord bot for the OTR community server.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "check": "node --check src/index.js && node --check src/serverSetup.js && node --check src/otrBanner.js && node --check src/colorRoles.js && node --check src/selfRoles.js && node --check src/marketDashboard.js"
+    "check": "node --check src/index.js && node --check src/serverSetup.js && node --check src/otrBanner.js && node --check src/colorRoles.js && node --check src/selfRoles.js && node --check src/marketDashboard.js && node --check src/tradingIntelligence.js && node --test test/*.test.js",
+    "prestart": "npm run check"
   },
   "engines": {
     "node": ">=20"

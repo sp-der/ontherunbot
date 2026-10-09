@@ -1,25 +1,29 @@
 # OTR Bot
 
-OTR community Discord bot.
+Discord bot for the **OTR community** (`sp-der/ontherunbot`), deployed from `main` on Railway. This is NOT Don's server.
 
-On startup, when `ENABLE_SERVER_SETUP=true`, the bot safely ensures this layout:
+## Existing features
+- `#trading` market desk: hourly NQ, ES and Gold futures snapshot (Yahoo chart quotes, which may be delayed).
+- Existing 5-minute movement thresholds and selective Trader role pings.
+- Welcome/roles/channel setup and self-service color roles.
 
-OTR COMMUNITY
-- general
-- trading
-- gaming
+## New trading intelligence
+- Market/economy headlines: CNBC market/economy RSS, with relevant keywords and original article links. Checks every **15 minutes**, max 3 new headlines per scan, without role pings.
+- Official Federal Reserve monetary policy RSS. A significant Fed policy statement may ping **@Trader**.
+- Official economic schedule: BLS calendar (CPI, NFP, PPI, JOLTS, ECI) and BEA JSON calendar (GDP and PCE). Times are converted from ET/UTC and rendered in Discord's viewer-local timezone.
+- At **8:00 AM ET**, a daily rundown is posted on days with calendar events (no ping).
+- Within **15 minutes before an event**, a reminder posts once. Only CPI/NFP/PPI/GDP/PCE ping @Trader.
+- On first startup, old headlines are marked seen so the channel is not backfilled. Each post has an identifying marker and recent message checks to reduce duplicate posts after restarts.
+- News feeds may lag and provider outages may occur; these are informational alerts, not real-time execution signals. No predicted impact, actual values or false release outcomes are invented.
+- Does not use unauthorized scraping or require Finviz Elite/API. Finviz links are not passed off as a live feed.
 
-VOICE
-- Gaming
-- Trading
-- Working
+## Configuration
+Railway variables:
+- `DISCORD_TOKEN` (required)
+- `OTR_GUILD_NAME=OTR` or `DISCORD_GUILD_ID`
+- `ENABLE_SERVER_SETUP=true` (existing server setup)
+- `ENABLE_TRADING_INTELLIGENCE=true` (optional: enabled by default; set false to disable)
 
-The setup is idempotent: existing matching channels are reused rather than duplicated.
-Welcome, joined, and roles are intentionally not configured yet.
+Discord permissions: View Channel, Read Message History, Send Messages, Embed Links, Attach Files, and ability to mention the Trader role if you want role pings to work. The bot also needs Manage Channels / Manage Roles for existing server and role setup.
 
-Railway should provide:
-- `DISCORD_TOKEN`
-- `OTR_GUILD_NAME=OTR`
-- `ENABLE_SERVER_SETUP=true`
-
-The bot requires the Discord `Manage Channels` permission for the initial setup.
+`npm run check` performs syntax checks and parser tests. The same check runs automatically before Railway starts the bot.
